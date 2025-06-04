@@ -23,7 +23,7 @@ set -euo pipefail
 #############################
 
 # 1. ddns_update.sh 在 GitHub 上的 Raw 地址：
-DDNS_RAW_URL="https://raw.githubusercontent.com/dmdmdmxy/tcp/main/az-jp04-DNS.sh"
+DDNS_RAW_URL="https://raw.githubusercontent.com/dmdmdmxy/ddns/refs/heads/main/az-jp04-DNS.sh"
 
 # 2. 下载后放置的目标路径：
 DDNS_SCRIPT_TARGET="/usr/local/bin/ddns_update.sh"
