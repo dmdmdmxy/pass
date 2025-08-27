@@ -118,21 +118,28 @@ ensure_cron_ready() {
     echo "$bin"
 }
 
+# ——替换你脚本里的 create_cron_entry()——
 create_cron_entry() {
-    # 保持你的原始写法，仅将 crontab 命令改为使用确保存在的绝对路径
-    local CRONTAB_BIN
-    CRONTAB_BIN="$(ensure_cron_ready)"
+  # 确保已安装并能用
+  ensure_cron_ready
 
-    local cron_line="${CRON_SCHEDULE} ${DDNS_SCRIPT_TARGET} >> ${LOG_FILE} 2>&1"
-    local tmp_cron="/tmp/cron_backup.$$"
+  local CRON_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  local cron_line="${CRON_SCHEDULE} /usr/bin/env -i PATH=${CRON_PATH} /bin/bash \"${DDNS_SCRIPT_TARGET}\" >> \"${LOG_FILE}\" 2>&1"
+  local SCRIPT_PATH
+  SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || echo "$0")"
 
-    "$CRONTAB_BIN" -l 2>/dev/null | grep -F -v "${DDNS_SCRIPT_TARGET}" > "${tmp_cron}" || true
-    echo "${cron_line}" >> "${tmp_cron}"
-    "$CRONTAB_BIN" "${tmp_cron}"
-    rm -f "${tmp_cron}"
+  # 读取当前 crontab，过滤旧任务，再把新行追加，然后整体喂给 crontab -
+  {
+    crontab -l 2>/dev/null \
+      | grep -F -v "${DDNS_SCRIPT_TARGET}" \
+      | grep -F -v "${SCRIPT_PATH}" \
+      | grep -v "install.sh" \
+      || true
+    echo "${cron_line}"
+  } | crontab -
 
-    log "【信息】已将定时任务添加到 root 的 crontab："
-    log "    ${cron_line}"
+  log "【信息】已将定时任务添加到 root 的 crontab："
+  log "    ${cron_line}"
 }
 
 #############################
