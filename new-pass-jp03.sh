@@ -84,6 +84,31 @@ ensure_wget() {
     fi
 }
 
+# [ADD] 安装并启动 cron/crond（仅新增，不改动其他逻辑）
+ensure_cron_service() {
+    if [[ -f /etc/debian_version ]]; then
+        if ! command -v crontab &>/dev/null; then
+            apt-get update -y && apt-get install -y cron
+        fi
+        systemctl enable --now cron || true
+    elif [[ -f /etc/redhat-release ]]; then
+        if ! command -v crontab &>/dev/null; then
+            yum install -y cronie || dnf install -y cronie
+        fi
+        systemctl enable --now crond || true
+    elif command -v apk >/dev/null 2>&1; then
+        # Alpine（有些轻量环境用它）
+        if ! command -v crontab &>/dev/null; then
+            apk add --no-cache cronie
+        fi
+        rc-update add crond default || true
+        rc-service crond start || true
+    else
+        log "【错误】未识别的发行版，请手动安装 cron/cronie 后重试。"
+        exit 1
+    fi
+}
+
 create_cron_entry() {
     # 把 ddns_update.sh 写入 root 的 crontab
     # 格式：<分 时 日 月 周> <命令>
