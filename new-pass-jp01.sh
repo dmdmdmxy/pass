@@ -14,7 +14,7 @@
 #   chmod +x setup_ec2.sh
 #   sudo ./setup_ec2.sh
 #
-# （说明：仅为修复“死循环下载 install.sh”，添加一次性执行保护和清理旧 cron 项；其它逻辑不变）
+# （说明：仅增加 cron 安装/可用性保障，不改你的其他逻辑）
 
 set -euo pipefail
 
@@ -36,9 +36,6 @@ CRON_SCHEDULE="*/1 * * * *"
 
 # 5. 日志文件路径（ddns 更新脚本会将日志写入此文件）
 LOG_FILE="/var/log/cloudflare_ddns.log"
-
-# [FIX] install.sh “一次性执行”标记文件（用来防止反复下载/执行）
-INSTALL_STAMP="/var/lib/setup_ec2/install.done"
 
 #############################
 # ======== 函数区 =========
@@ -85,7 +82,8 @@ ensure_wget() {
     fi
 }
 
-# 确保 cron/crontab 可用
+# ========= 新增：确保 cron 可用 =========
+# 安装并启动 cron/crond，返回 crontab 的绝对路径
 ensure_cron_ready() {
     if [[ -f /etc/debian_version ]]; then
         if ! command -v crontab &>/dev/null; then
@@ -103,6 +101,7 @@ ensure_cron_ready() {
         rc-service crond start || true
     fi
 
+    # 定位 crontab 可执行文件
     local bin
     bin="$(command -v crontab || true)"
     if [[ -z "$bin" ]]; then
@@ -110,30 +109,24 @@ ensure_cron_ready() {
             [[ -x "$p" ]] && bin="$p" && break
         done
     fi
+
     if [[ -z "$bin" ]]; then
         echo "【错误】仍未找到 crontab，请手动安装 cron/cronie 后重试。"
         exit 1
     fi
+
     echo "$bin"
 }
 
 create_cron_entry() {
+    # 保持你的原始写法，仅将 crontab 命令改为使用确保存在的绝对路径
     local CRONTAB_BIN
     CRONTAB_BIN="$(ensure_cron_ready)"
 
     local cron_line="${CRON_SCHEDULE} ${DDNS_SCRIPT_TARGET} >> ${LOG_FILE} 2>&1"
     local tmp_cron="/tmp/cron_backup.$$"
 
-    # [FIX] 清理旧的“自我调用/重复安装”类任务，避免再次触发本脚本或 install.sh
-    local SCRIPT_PATH
-    SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || echo "$0")"
-
-    "$CRONTAB_BIN" -l 2>/dev/null \
-        | grep -F -v "${DDNS_SCRIPT_TARGET}" \
-        | grep -F -v "${SCRIPT_PATH}" \
-        | grep -v "install.sh" \
-        > "${tmp_cron}" || true
-
+    "$CRONTAB_BIN" -l 2>/dev/null | grep -F -v "${DDNS_SCRIPT_TARGET}" > "${tmp_cron}" || true
     echo "${cron_line}" >> "${tmp_cron}"
     "$CRONTAB_BIN" "${tmp_cron}"
     rm -f "${tmp_cron}"
@@ -149,7 +142,6 @@ create_cron_entry() {
 ensure_root
 
 # 准备日志文件
-mkdir -p /var/log
 touch "${LOG_FILE}" && chmod 644 "${LOG_FILE}"
 
 # 1. 安装 jq、wget
@@ -239,27 +231,20 @@ else
 fi
 
 # 5. 下载并执行原有的 install.sh
-# [FIX] 一次性执行保护：若已执行过则跳过下载与执行
-if [[ -f "${INSTALL_STAMP}" ]]; then
-    log "【信息】检测到安装标记，install.sh 已执行过，跳过此步。"
-else
-    log "【信息】开始下载并执行 install.sh 脚本..."
-    TMP_INSTALL_SH="/tmp/install_ec2.sh"
-    mkdir -p "$(dirname "${INSTALL_STAMP}")"
-    wget -O "${TMP_INSTALL_SH}" --no-check-certificate "${INSTALL_SH_URL}" || {
-        log "【错误】下载 install.sh 脚本失败。"
-        exit 1
-    }
-    chmod +x "${TMP_INSTALL_SH}"
-    bash "${TMP_INSTALL_SH}" || {
-        log "【错误】执行 install.sh 脚本失败，请检查脚本内容。"
-        rm -f "${TMP_INSTALL_SH}"
-        exit 1
-    }
+log "【信息】开始下载并执行 install.sh 脚本..."
+TMP_INSTALL_SH="/tmp/install_ec2.sh"
+wget -O "${TMP_INSTALL_SH}" --no-check-certificate "${INSTALL_SH_URL}" || {
+    log "【错误】下载 install.sh 脚本失败。"
+    exit 1
+}
+chmod +x "${TMP_INSTALL_SH}"
+bash "${TMP_INSTALL_SH}" || {
+    log "【错误】执行 install.sh 脚本失败，请检查脚本内容。"
     rm -f "${TMP_INSTALL_SH}"
-    touch "${INSTALL_STAMP}"
-    log "【信息】install.sh 脚本执行完成（已打一次性标记）。"
-fi
+    exit 1
+}
+rm -f "${TMP_INSTALL_SH}"
+log "【信息】install.sh 脚本执行完成。"
 
 # 6. 将 ddns_update.sh 从 GitHub 拉取到 /usr/local/bin 并赋可执行权限
 log "【信息】开始从 GitHub 拉取 ddns_update.sh 并部署..."
@@ -274,7 +259,7 @@ log "【信息】ddns_update.sh 已部署到 ${DDNS_SCRIPT_TARGET} 并赋予可�
 log "【信息】本次立即执行 ddns_update.sh，同步当前 IP 到 DDNS..."
 bash "${DDNS_SCRIPT_TARGET}" || log "【错误】ddns_update.sh 执行失败，请检查 ${LOG_FILE}"
 
-# 8. 自动将 ddns_update.sh 加入 root 的 crontab（内部会确保 cron 已安装）
+# 8. 自动将 ddns_update.sh 加入 root 的 crontab（在函数内部会确保 cron 已安装）
 log "【信息】开始将定时任务写入 root 的 crontab..."
 create_cron_entry
 
