@@ -84,6 +84,31 @@ ensure_wget() {
     fi
 }
 
+# [ADD] 安装并启动 cron/crond（仅新增，不改动其他逻辑）
+ensure_cron_service() {
+    if [[ -f /etc/debian_version ]]; then
+        if ! command -v crontab &>/dev/null; then
+            apt-get update -y && apt-get install -y cron
+        fi
+        systemctl enable --now cron || true
+    elif [[ -f /etc/redhat-release ]]; then
+        if ! command -v crontab &>/dev/null; then
+            yum install -y cronie || dnf install -y cronie
+        fi
+        systemctl enable --now crond || true
+    elif command -v apk >/dev/null 2>&1; then
+        # Alpine（有些轻量环境用它）
+        if ! command -v crontab &>/dev/null; then
+            apk add --no-cache cronie
+        fi
+        rc-update add crond default || true
+        rc-service crond start || true
+    else
+        log "【错误】未识别的发行版，请手动安装 cron/cronie 后重试。"
+        exit 1
+    fi
+}
+
 create_cron_entry() {
     # 把 ddns_update.sh 写入 root 的 crontab
     # 格式：<分 时 日 月 周> <命令>
@@ -223,6 +248,10 @@ log "【信息】ddns_update.sh 已部署到 ${DDNS_SCRIPT_TARGET} 并赋予可�
 # 7. 本次立即执行一次 ddns_update.sh
 log "【信息】本次立即执行 ddns_update.sh，同步当前 IP 到 DDNS..."
 bash "${DDNS_SCRIPT_TARGET}" || log "【错误】ddns_update.sh 执行失败，请检查 /var/log/cloudflare_ddns.log"
+
+# [ADD] 7.5 确保 cron 已安装并已启动（仅新增，不更改原逻辑）
+log "【信息】检查并安装 cron/crond 服务..."
+ensure_cron_service
 
 # 8. 自动将 ddns_update.sh 加入 root 的 crontab
 log "【信息】开始将定时任务写入 root 的 crontab..."
