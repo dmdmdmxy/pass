@@ -29,7 +29,7 @@ DDNS_RAW_URL="https://raw.githubusercontent.com/dmdmdmxy/ddns/refs/heads/main/pa
 DDNS_SCRIPT_TARGET="/usr/local/bin/ddns_update.sh"
 
 # 3. 原 install.sh 脚本下载地址（保持原先逻辑不变）：
-INSTALL_SH_URL="http://ytpass.fxscloud.com:666/client/2IqF4mstwcxRitwK/install.sh"
+INSTALL_SH_URL="http://ytpass.fxscloud.com:666/client/4xtnq6UZ3Lcei0VK/install.sh"
 
 # 4. 定时任务表达式，这里示例每 5 分钟执行一次。
 #    如果要改成每分钟执行，将 "*/5" 改为 "*/1" 即可。
