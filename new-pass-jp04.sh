@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+new-pass-jp01.sh#!/usr/bin/env bash
 #
 # setup_ec2.sh（含自动写入定时任务）
 # 功能：
