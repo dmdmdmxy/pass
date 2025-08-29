@@ -170,8 +170,6 @@ net.ipv6.conf.all.forwarding = 1
 net.ipv6.conf.default.forwarding = 1
 net.mptcp.enabled = 1
 EOF
-EOF
-
 # 让 sysctl 修改立即生效
 sysctl --system
 
