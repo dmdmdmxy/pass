@@ -29,7 +29,7 @@ DDNS_RAW_URL="https://raw.githubusercontent.com/dmdmdmxy/ddns/refs/heads/main/pa
 DDNS_SCRIPT_TARGET="/usr/local/bin/ddns_update.sh"
 
 # 3. 原 install.sh 脚本下载地址（保持原先逻辑不变）：
-INSTALL_SH_URL="http://ytpass.fxscloud.com:666/client/rFSz1EpuSZVRqfff/install.sh"
+INSTALL_SH_URL="http://ytpass.fxscloud.com:666/client/5gakK26xalP126nG/install.sh"
 
 # 4. 定时任务表达式，这里示例每 5 分钟执行一次。
 #    如果要改成每分钟执行，将 "*/5" 改为 "*/1" 即可。
@@ -144,41 +144,30 @@ ensure_wget
 log "【信息】开始优化 Linux 内核参数..."
 cat <<'EOF' > /etc/sysctl.d/99-ec2-network-tweaks.conf
 # 启用 BBR 拥塞控制算法
-net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = bbr
-
-# 增加 TCP 连接数限制
-net.core.somaxconn = 65535
-net.core.netdev_max_backlog = 500000
-net.core.optmem_max = 81920
-
-# TCP 读写缓冲区优化
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-net.ipv4.tcp_rmem = 4096 87380 16777216
-net.ipv4.tcp_wmem = 4096 87380 16777216
-
-# 允许更多 TCP 连接
+fs.file-max = 1048576
+net.core.rmem_max = 67108864
+net.core.wmem_max = 67108864
 net.ipv4.ip_local_port_range = 1024 65535
-net.ipv4.tcp_max_syn_backlog = 8192
-net.ipv4.tcp_max_orphans = 32768
-net.ipv4.tcp_fin_timeout = 10
 net.ipv4.tcp_tw_reuse = 1
-
-# 启用 TCP Fast Open（TFO）
-net.ipv4.tcp_fastopen = 3
-
-# 增强 SYN Flood 保护
+net.ipv4.tcp_timestamps = 1
 net.ipv4.tcp_syncookies = 1
-
-# 允许更大的 socket buffer
-net.ipv4.udp_rmem_min = 8192
-net.ipv4.udp_wmem_min = 8192
-
-# 降低 TCP 内存压力
-net.ipv4.tcp_mem = 786432 1048576 1572864
-
-# MPTCP 相关优化（如果启用 MPTCP）
+net.ipv4.tcp_max_tw_buckets = 256
+net.core.somaxconn = 8192
+net.ipv4.tcp_max_syn_backlog = 16384
+net.core.netdev_max_backlog = 250000
+net.ipv4.tcp_mem = 2097152 2621440 3145728
+net.ipv4.tcp_rmem = 8192 262144 33554432
+net.ipv4.tcp_wmem = 4096 16384 33554432
+net.core.default_qdisc = fq_pie
+net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_no_metrics_save = 1
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_sack = 1
+net.ipv4.tcp_low_latency = 1
+net.ipv4.conf.all.arp_announce = 2
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv6.conf.default.forwarding = 1
 net.mptcp.enabled = 1
 EOF
 
